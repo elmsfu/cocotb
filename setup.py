@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
-from setuptools import setup
-from setuptools import find_packages
 import os
+import sys
+
+from setuptools import find_packages
+from distutils.core import setup, Extension
+import distutils.command.install_data
 
 f = open('version', 'r')
 version = f.readline()[8:].strip()
@@ -12,18 +15,23 @@ author = 'Chris Higgs, Stuart Hodgson'
 author_email = 'cocotb@potentialventures.com'
 
 install_requires = []
+class cocotb_install_data(distutils.command.install_data.install_data):
+    """need to change self.install_dir to the actual library dir"""
+    def run(self):
+      install_cmd = self.get_finalized_command('install')
+      self.install_dir = getattr(install_cmd, 'install_lib')
+      return distutils.command.install_data.install_data.run(self)
 
 def package_files(directory):
     paths = []
     for (path, directories, filenames) in os.walk(directory):
         for filename in filenames:
-            paths.append(os.path.join('..', path, filename))
+            paths.append(os.path.join(path, filename))
     return paths
 
-extra_files = package_files('makefiles')
-extra_files += package_files('lib')
-extra_files += package_files('include')
-extra_files += ['../version']
+data_files  = [(os.path.join('cocotb', name), package_files(name))
+              for name in ['makefiles', 'lib', 'include'] ]
+data_files.append( (os.path.join('share/cocotb'), ['version']) )
 
 setup(
     name='cocotb',
@@ -38,8 +46,8 @@ setup(
     maintainer_email=author_email,
     install_requires=install_requires,
     packages=find_packages(),
-    include_package_data=True,
-    package_data={'cocotb': extra_files},
+    cmdclass={'install_data': cocotb_install_data},
+    data_files=data_files,
     scripts=['bin/cocotb-path'],
     platforms='any'
 )
